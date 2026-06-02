@@ -35,6 +35,8 @@ h2{font-size:20px;font-weight:600;margin-top:36px;margin-bottom:12px}
 .meta-section a{color:#0071e3}
 @media(max-width:640px){.container{padding:24px 16px}h1{font-size:24px}.lede{font-size:15px;padding:18px}}
 </style>
+<meta name="ab-page" content="2026-06-02-''' + a['id'] + r'''.html">
+<meta name="ab-article-id" content="''' + a['id'] + r'''">
 </head>
 <body>
 <nav class="top-bar"><div class="top-bar-inner">
@@ -52,9 +54,10 @@ h2{font-size:20px;font-weight:600;margin-top:36px;margin-bottom:12px}
 <div class="meta-section">
   Source: ''' + a['source'] + r'''
   &nbsp;&middot;&nbsp; <a href="''' + a['url'] + r'''" target="_blank" rel="noopener">Original source</a>
-  &nbsp;&middot;&nbsp; Published June 2, 2026
+  &nbsp;&middot;&nbsp; Published June 2, 2026 &middot; Beijing Time (GMT+8)
 </div>
 </div>
+<script src="../analytics.js"></script>
 </body>
 </html>'''
 

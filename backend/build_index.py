@@ -48,6 +48,7 @@ html_parts.append('''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="ab-page" content="index.html">
 <title>AiMedbrief &mdash; China Biopharma Intelligence Daily</title>
 <meta name="description" content="Daily intelligence on innovative drugs, medical devices, and AI-enabled medicine from China &mdash; curated and translated for a global audience.">
 <style>''')
@@ -196,6 +197,7 @@ function filterAll(){document.querySelectorAll('.tag-btn').forEach(b=>b.classLis
 function filterCat(cat){document.querySelectorAll('.tag-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.card').forEach(c=>{var t=c.querySelector('.card-tag').textContent.trim();c.style.display=t===cat?'':'none'});event.target.classList.add('active')}
 
 </script>
+<script src="analytics.js"></script>
 </body></html>''')
 
 full_html = ''.join(html_parts)
