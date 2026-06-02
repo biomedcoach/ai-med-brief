@@ -1,0 +1,88 @@
+# China AI Health — Crawler Source Configuration (v5, verified selectors)
+
+sources:
+  # ── 36kr AI (Playwright) ───────────────────────────
+  - name: 36kr_ai
+    url: https://36kr.com/information/AI
+    type: html
+    render: playwright
+    list_selector: ".information-flow-item"
+    title_selector: ".article-item-title"
+    link_selector: ".article-item-title"
+    summary_selector: ".article-item-description"
+    authority: 8
+
+  # ── 雷锋网 AI医疗 (Playwright) ─────────────────────
+  - name: leiphone_ai
+    url: https://www.leiphone.com/category/aihealth
+    type: html
+    render: playwright
+    list_selector: ".word"
+    title_selector: ".headTit"
+    link_selector: "a"
+    summary_selector: ".time"
+    authority: 8
+
+  # ── CDE (Simple HTTP) ──────────────────────────────
+  - name: cdstic
+    url: https://www.cde.org.cn/main/news/listpage/3c49fad55ca7477e9523170f5356f2a7
+    type: html
+    list_selector: ".news-list li, .list li"
+    title_selector: "a"
+    link_selector: "a"
+    date_selector: ".date, span.time, .time"
+    authority: 9
+
+# ── Quality Scoring Configuration ────────────────────
+scoring:
+  weights:
+    freshness: 0.30
+    authority: 0.25
+    relevance: 0.20
+    density: 0.15
+    rarity: 0.10
+  hour_decay_rate: 0.05
+  relevance_keywords:
+    primary:
+      - AI
+      - 人工智能
+      - 深度学习
+      - 机器学习
+      - 大模型
+      - LLM
+      - 神经网络
+      - 智能
+    secondary:
+      - 医疗
+      - 医学
+      - 药
+      - 诊断
+      - 手术
+      - 影像
+      - 基因
+      - 基因组
+      - 蛋白
+      - 临床
+      - 患者
+      - 医院
+      - 器械
+      - 内镜
+      - 机器人
+      - NMPA
+      - 审批
+      - 融资
+
+# ── Filters ──────────────────────────────────────────
+filters:
+  title_blacklist:
+    - 招聘
+    - 招人
+    - 求职
+    - 广告
+    - 推广
+    - 活动报名
+    - 培训
+    - 实习生
+  min_content_length: 50
+  dedup_title_similarity: 0.80
+  dedup_days: 7

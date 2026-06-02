@@ -1,0 +1,99 @@
+name: Daily Crawl & Translate
+
+# ── Schedule ────────────────────────────────────────
+# Runs 3 times daily: 12:00 / 18:00 / 21:00 Beijing time (UTC+8)
+# The 01:00 publish step is triggered manually after curation.
+
+on:
+  schedule:
+    - cron: "0 4 * * *"   # 12:00 CST = 04:00 UTC
+    - cron: "0 10 * * *"  # 18:00 CST = 10:00 UTC
+    - cron: "0 13 * * *"  # 21:00 CST = 13:00 UTC
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "Which step to run"
+        required: false
+        default: "crawl"
+        type: choice
+        options:
+          - crawl
+          - translate
+          - publish
+          - full
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.step == 'crawl' || github.event.inputs.step == 'full' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Run crawler
+        run: python backend/crawl.py
+        env:
+          SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
+
+      - name: Upload candidates artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidates
+          path: backend/data/candidates/
+
+  translate:
+    needs: crawl
+    runs-on: ubuntu-latest
+    if: ${{ success() && (github.event_name == 'schedule' || github.event.inputs.step == 'translate' || github.event.inputs.step == 'full') }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Download candidates
+        uses: actions/download-artifact@v4
+        with:
+          name: candidates
+          path: backend/data/candidates/
+
+      - name: Run translator
+        run: python backend/translate.py
+        env:
+          SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
+
+      - name: Upload processed artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed
+          path: backend/data/processed/
+
+  notify:
+    needs: [crawl, translate]
+    runs-on: ubuntu-latest
+    if: ${{ success() }}
+    steps:
+      - name: Summary
+        run: |
+          echo "✅ Crawl + Translate complete."
+          echo "Next: Review at http://curl:5000 and select articles for today."
+          echo "Then trigger the publish workflow manually."

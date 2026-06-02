@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data (generated, don't commit)
+backend/data/candidates/
+backend/data/processed/
+backend/data/selected/
+backend/data/history.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keep published output for GitHub Pages
+!docs/

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>China AI Health — 后端架构设计</title>
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 48px 24px 120px;
+  color: #1d1d1f;
+  background: #fafafa;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+.subtitle { font-size: 14px; color: #86868b; margin-bottom: 40px; }
+h2 {
+  font-size: 20px; font-weight: 600;
+  margin-top: 48px; margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e5e5ea;
+}
+h3 { font-size: 16px; font-weight: 600; margin-top: 32px; margin-bottom: 10px; color: #0071e3; }
+p { margin: 12px 0; color: #333; }
+ul, ol { padding-left: 22px; margin: 12px 0; }
+li { margin: 6px 0; color: #333; }
+
+.diagram {
+  background: #fff;
+  border: 1px solid #e5e5ea;
+  border-radius: 12px;
+  padding: 28px 32px;
+  margin: 24px 0;
+  font-family: 'SF Mono', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.9;
+  overflow-x: auto;
+  white-space: pre;
+  color: #1d1d1f;
+}
+.diagram .hl { color: #0071e3; font-weight: 600; }
+.diagram .dim { color: #86868b; }
+.diagram .accent { color: #ff6b35; }
+
+.code-block {
+  background: #1d1d1f;
+  color: #e5e5ea;
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin: 16px 0;
+  font-family: 'SF Mono', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre;
+}
+.code-block .cmd { color: #ff9500; }
+.code-block .path { color: #30d158; }
+.code-block .comment { color: #86868b; }
+
+.card {
+  background: #fff;
+  border: 1px solid #e5e5ea;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 16px 0;
+}
+.card-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #86868b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 20px 0;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e5e5ea;
+}
+.step-num {
+  width: 32px; height: 32px;
+  background: #0071e3;
+  color: #fff;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+  flex-shrink: 0;
+}
+.step-content h4 { margin: 0; font-size: 15px; }
+.step-content p { margin: 4px 0 0; font-size: 13px; color: #6e6e73; }
+
+.note {
+  background: #f5f9ff;
+  border-left: 3px solid #0071e3;
+  padding: 12px 16px;
+  margin: 16px 0;
+  font-size: 13px;
+  color: #333;
+  border-radius: 0 8px 8px 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+th, td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e5ea;
+}
+th { font-weight: 600; color: #86868b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+td { color: #333; }
+</style>
+</head>
+<body>
+
+<h1>China AI Health — 后端架构设计</h1>
+<p class="subtitle">How the crawler pipeline works — and how you operate it.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>1&emsp;整体架构</h2>
+
+<div class="diagram">
+<span class="dim"># 每天自动运行 3 次</span>
+
+<span class="dim">[12:00 / 18:00 / 21:00]</span>
+    │
+    ▼
+┌─────────────────────────────────┐
+│  <span class="hl">🕷️ crawl.py</span>                    │
+│  爬取 15 个中文源               │
+│  去重 + Quality Score 打分      │
+│  → candidates_YYYY-MM-DD.json   │
+│     (30~40 篇候选项)            │
+└─────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────┐
+│  <span class="hl">🤖 translate.py</span>                │
+│  每篇调 SiliconFlow API          │
+│  → 英文摘要、标题、3 个要点     │
+│  → processed_YYYY-MM-DD.json    │
+└─────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────┐
+│  <span class="accent">👤 人工精选 (curation UI)</span>    │
+│  打开本地网页：30~40 篇列表     │
+│  你选 10 篇，打勾               │
+│  → selected_YYYY-MM-DD.json     │
+└─────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────┐
+│  <span class="hl">📄 publish.py</span>                 │
+│  生成 index.html + MDX 文件     │
+│  → git push → GitHub Pages      │
+│  凌晨 1:00 自动执行             │
+└─────────────────────────────────┘
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>2&emsp;目录结构</h2>
+
+<div class="code-block">
+<span class="path">china-ai-health/</span>
+├── <span class="path">index.html</span>              <span class="comment"># 首页（由 publish.py 每天更新）</span>
+├── <span class="path">articles/</span>
+│   ├── 2026-05-26-01.md   <span class="comment"># 每篇文章一个 MD 文件</span>
+│   ├── 2026-05-26-02.md
+│   └── ...
+├── <span class="path">backend/</span>
+│   ├── <span class="cmd">crawl.py</span>          <span class="comment"># 爬虫：采集 + 打分</span>
+│   ├── <span class="cmd">translate.py</span>      <span class="comment"># AI 翻译：中文 → 英文摘要</span>
+│   ├── <span class="cmd">publish.py</span>        <span class="comment"># 发布：生成静态页面</span>
+│   ├── <span class="cmd">curation_ui.py</span>    <span class="comment"># 精选界面（浏览器操作）</span>
+│   ├── <span class="path">sources.yaml</span>      <span class="comment"># 爬虫源配置</span>
+│   ├── <span class="path">config.py</span>         <span class="comment"># API Key / 路径配置</span>
+│   ├── <span class="path">data/</span>
+│   │   ├── <span class="path">candidates/</span>     <span class="comment"># 每日候选项 JSON</span>
+│   │   ├── <span class="path">processed/</span>     <span class="comment"># AI 翻译后的 JSON</span>
+│   │   ├── <span class="path">selected/</span>      <span class="comment"># 人工精选结果</span>
+│   │   └── <span class="path">history.db</span>      <span class="comment"># SQLite：去重历史</span>
+│   └── <span class="path">requirements.txt</span>
+└── <span class="path">.github/workflows/</span>
+    └── <span class="path">daily.yml</span>          <span class="comment"># GitHub Actions 定时任务</span>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>3&emsp;你怎么操作 —— 日常流程</h2>
+
+<p>每天的标准操作流程，分两步：</p>
+
+<div class="step-row">
+  <div class="step-num">1</div>
+  <div class="step-content">
+    <h4>打开精选页面，挑 10 篇</h4>
+    <p>晚上 9 点后，浏览器打开 <code>http://localhost:5000</code>，看到当天 30~40 篇候选项——每篇有标题、摘要、Quality Score 分数。你勾选 10 篇，点「确认发布」。</p>
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-num">2</div>
+  <div class="step-content">
+    <h4>（凌晨自动）生成页面 + Git Push</h4>
+    <p>publish.py 在凌晨 1:00 自动运行，生成新一天的 index.html 和文章页面，git commit + push。GitHub Pages 自动部署，几秒钟生效。</p>
+  </div>
+</div>
+
+<div class="note">
+  <strong>最简单的情况下</strong>：你只需要每晚打开一个网页，勾 10 篇文章，关掉。其他的全自动。
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>4&emsp;精选界面（Curation UI）</h2>
+
+<p>这是你唯一需要操作的界面。用 Streamlit 写，极简：</p>
+
+<div class="card">
+  <div class="card-label">curation_ui.py 界面样子</div>
+
+  <div style="background:#f5f5f7;border-radius:8px;padding:16px;font-family:'SF Mono',monospace;font-size:12px;line-height:1.8;color:#86868b;margin-top:8px;">
+    ┌─────────────────────────────────────────────────────────┐
+    │  <span style="color:#1d1d1f"><b>China AI Health · Daily Curation</b></span>              <span style="color:#86868b">May 26, 2026</span>  │
+    │                                                         │
+    │  <span style="color:#0071e3">38 candidates</span> · <span style="color:#30d158">10 selected</span>                          │
+    ├─────────────────────────────────────────────────────────┤
+    │                                                         │
+    │  <span style="color:#86868b">☐</span> <span style="color:#1d1d1f"><b>[QS 95]</b></span> TuiXiang Medical's AI Lung Nodule...     │
+    │     <span style="color:#86868b">动脉网 · AI Diagnosis · 今天 12:00</span>                    │
+    │                                                         │
+    │  <span style="color:#0071e3">☑</span> <span style="color:#1d1d1f"><b>[QS 93]</b></span> Insilico Medicine's AI-Discovered...      │
+    │     <span style="color:#86868b">生物谷 · AI Drug Discovery · 今天 12:00</span>                │
+    │                                                         │
+    │  <span style="color:#0071e3">☑</span> <span style="color:#1d1d1f"><b>[QS 91]</b></span> United Imaging Launches uAI Vision 2.0... │
+    │     <span style="color:#86868b">36Kr · AI Medical Device · 今天 18:00</span>                 │
+    │                                                         │
+    │  <span style="color:#86868b">☐</span> <span style="color:#1d1d1f"><b>[QS 90]</b></span> NMPA Drafts AI Medical Device...          │
+    │     ...                                                 │
+    │                                                         │
+    │  ───────────────────────────────────────                │
+    │  ... (30+ more rows, scrollable)                        │
+    │  ───────────────────────────────────────                │
+    │                                                         │
+    │  点击任意行 → 右侧展开 AI 翻译全文                     │
+    │                                                         │
+    │  [<span style="color:#ff9500">Reset</span>]  [<span style="color:#0071e3">Confirm 10 Articles</span>]           │
+    └─────────────────────────────────────────────────────────┘
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>5&emsp;爬虫核心：sources.yaml</h2>
+
+<div class="code-block">
+<span class="comment"># 所有爬虫源配置在一个 YAML 文件里</span>
+<span class="comment"># 你要加新的源，只加几行就行</span>
+
+sources:
+  - name: vcbeat
+    url: https://vcbeat.top
+    type: rss
+    rss_url: https://vcbeat.top/feed
+    authority: 10
+    cat_filter: ["AI", "智能", "算法", "深度学习"]
+
+  - name: bioon
+    url: https://www.bioon.com
+    type: rss
+    rss_url: https://www.bioon.com/feed
+    authority: 10
+
+  - name: leiphone_ai_health
+    url: https://www.leiphone.com/category/ai-health
+    type: html
+    <span class="comment"># HTML 解析规则（CSS Selector）</span>
+    list_selector: ".article-list .article-item"
+    title_selector: "h3 a"
+    link_selector: "h3 a"
+    date_selector: ".time"
+    authority: 8
+
+  - name: 36kr_newsflash
+    url: https://36kr.com/newsflashes
+    type: html
+    list_selector: ".newsflash-item"
+    title_selector: ".item-title"
+    link_selector: "a"
+    authority: 8
+
+  <span class="comment"># ... 更多源</span>
+
+<span class="comment"># Quality Score 权重</span>
+scoring:
+  freshness_weight: 0.30
+  authority_weight: 0.25
+  relevance_weight: 0.20
+  density_weight: 0.15
+  rarity_weight: 0.10
+
+<span class="comment"># 过滤关键词（自动丢弃）</span>
+filters:
+  title_blacklist:
+    - 招聘
+    - 招人
+    - 求职
+    - 广告
+    - 推广
+  min_content_length: 300
+  dedup_title_similarity: 0.85  <span class="comment"># 7 天内标题相似度 > 85% 去重</span>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>6&emsp;AI 翻译模块</h2>
+
+<div class="card">
+  <div class="card-label">translate.py 做的事情</div>
+  <ol style="margin:0;padding-left:18px;">
+    <li>读 <code>candidates_YYYY-MM-DD.json</code></li>
+    <li>每篇调一次 SiliconFlow API（免费）</li>
+    <li>提取结果里的 JSON：<code>en_title</code> / <code>en_summary</code> / <code>en_key_points</code> / <code>tags</code></li>
+    <li>写回 <code>processed_YYYY-MM-DD.json</code></li>
+    <li>失败的文章标记 skip，不阻塞</li>
+  </ol>
+</div>
+
+<table>
+  <tr><th style="width:180px">Prompt 模板</th><td colspan="2">👇</td></tr>
+  <tr>
+    <td>System</td>
+    <td colspan="2" style="font-size:12px;color:#555;">
+      You are a professional English-language medical technology journalist. Your job
+      is to translate Chinese medical AI news into concise, accurate English summaries
+      that read like they came from STAT News or MedTech Dive.
+    </td>
+  </tr>
+  <tr>
+    <td>User</td>
+    <td colspan="2" style="font-size:12px;color:#555;">
+      For the following Chinese article, output valid JSON with these fields:<br>
+      1. <b>en_title</b> — an accurate, news-style English headline (max 14 words)<br>
+      2. <b>en_summary</b> — a 120-160 word English summary covering key facts, numbers, and significance<br>
+      3. <b>en_key_points</b> — 2-3 key bullet points (one sentence each)<br>
+      4. <b>tags</b> — choose from: AI-diagnosis, AI-drug-discovery, AI-medical-device, Regulation, Funding, Exhibition<br>
+      <br>
+      --- ARTICLE START ---<br>
+      [中文原文标题和正文]<br>
+      --- END ---
+    </td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>7&emsp;发布模块</h2>
+
+<div class="card">
+  <div class="card-label">凌晨 1:00 自动跑</div>
+  <p><code>publish.py</code> 做的事情：</p>
+  <ol style="margin:0;padding-left:18px;">
+    <li>读 <code>selected_YYYY-MM-DD.json</code>（你勾的那 10 篇）</li>
+    <li>根据模板 HTML，替换 {{article_list}} 占位符，生成新 <code>index.html</code></li>
+    <li>为每篇文章生成 <code>articles/2026-05-26-01.md</code>（后续文章详情页用）</li>
+    <li>更新 RSS feed</li>
+    <li>Git add + commit + push</li>
+  </ol>
+</div>
+
+<div class="code-block">
+<span class="comment"># index.html 里的文章卡片区域，用 Jinja2 模板变量</span>
+
+&lt;main class="article-feed"&gt;
+  &lt;div class="feed-header"&gt;
+    &lt;h2&gt;{{ <span class="cmd">date_str</span> }} — Today's Selection&lt;/h2&gt;
+    &lt;span class="feed-meta"&gt;{{ <span class="cmd">selected_count</span> }} articles from {{ <span class="cmd">candidate_count</span> }} candidates&lt;/span&gt;
+  &lt;/div&gt;
+
+  {% <span class="cmd">for</span> article <span class="cmd">in</span> articles %}
+  &lt;article class="article-card"&gt;
+    &lt;div class="card-top"&gt;
+      &lt;span class="card-tag tag-{{ <span class="cmd">article.tag_class</span> }}"&gt;{{ <span class="cmd">article.tag_label</span> }}&lt;/span&gt;
+      &lt;span class="card-date"&gt;{{ <span class="cmd">article.date</span> }}&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;h3 class="card-title"&gt;{{ <span class="cmd">article.en_title</span> }}&lt;/h3&gt;
+    &lt;p class="card-summary"&gt;{{ <span class="cmd">article.en_summary</span> }}&lt;/p&gt;
+    &lt;div class="card-points"&gt;
+      {% for <span class="cmd">point</span> in <span class="cmd">article.en_key_points</span> %}
+      &lt;div class="card-point"&gt;{{ <span class="cmd">point</span> }}&lt;/div&gt;
+      {% endfor %}
+    &lt;/div&gt;
+  &lt;/article&gt;
+  {% endfor %}
+&lt;/main&gt;
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>8&emsp;你日常操作的 3 个命令</h2>
+
+<div class="card">
+  <div class="card-label">日常只需要记住这 3 个</div>
+
+<table>
+  <tr>
+    <th style="width:200px">命令</th>
+    <th>做什么</th>
+  </tr>
+  <tr>
+    <td><code class="cmd">python crawl.py</code></td>
+    <td>手动触发一次爬虫（调试时用；正式跑由 cron 自动触发）</td>
+  </tr>
+  <tr>
+    <td><code class="cmd">python curation_ui.py</code></td>
+    <td>打开精选页面 → 浏览器 http://localhost:5000 → 勾选 → 确认</td>
+  </tr>
+  <tr>
+    <td><code class="cmd">python publish.py --dry-run</code></td>
+    <td>预览：不 git push，只看生成的 HTML 什么样</td>
+  </tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>9&emsp;先跑本机，再上 GitHub Actions</h2>
+
+<div class="step-row">
+  <div class="step-num" style="background:#ff9500">A</div>
+  <div class="step-content">
+    <h4>本机阶段（现在）</h4>
+    <p>本地跑 Python 脚本。手动触发 crawl → translate → curation_ui → publish。不用管 GitHub，先把爬虫质量调好。</p>
+  </div>
+</div>
+
+<div class="step-row">
+  <div class="step-num" style="background:#30d158">B</div>
+  <div class="step-content">
+    <h4>GitHub Actions 阶段（验证后）</h4>
+    <p>把 crawl + translate 写进 <code>.github/workflows/daily.yml</code>，设置 cron 定时。GitHub 免费跑。精选还是你手动勾。</p>
+  </div>
+</div>
+
+<div class="note">
+  <strong>第一阶段（本机）就是：</strong><br>
+  <code>python crawl.py</code> → 看 30 篇候选质量怎么样 → 调评分权重 → 重复直到满意。<br>
+  <code>python curation_ui.py</code> → 模拟精选流程 → 看出来效果好不好。
+</div>
+
+</body>
+</html>
