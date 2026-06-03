@@ -31,7 +31,7 @@ def _e(sql, params=()):
 init_db()
 
 # ── Login HTML (inline) ──────────────────────────────────
-LOGIN = r"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Login — AiMedbrief Analytics</title>
+LOGIN = r"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>登录 — AiMedbrief 分析后台</title>
 <style>:root{--bg:#0f1117;--card:#1a1d28;--border:#2a2d3a;--text:#e4e6ec;--muted:#888;--accent:#4f8cff;--red:#ef4444}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;min-height:100vh}
 .login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;width:380px;max-width:90vw}
@@ -45,26 +45,26 @@ LOGIN = r"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta 
 .error{color:var(--red);font-size:12px;text-align:center;margin-top:12px;display:none}
 </style></head><body>
 <div class="login-box">
-<h1>&#128202; <span>AiMedbrief</span></h1><div class="sub">Analytics Dashboard</div>
-<input class="input-group" type="text" id="user" placeholder="Username" autocomplete="off"><br>
-<input class="input-group" type="password" id="pass" placeholder="Password" style="margin-top:-12px"><br>
-<button class="login-btn" id="btn" onclick="doLogin()">Sign In</button>
+<h1>&#128202; <span>AiMedbrief</span></h1><div class="sub">数据仪表板</div>
+<input class="input-group" type="text" id="user" placeholder="用户名" autocomplete="off"><br>
+<input class="input-group" type="password" id="pass" placeholder="密码" style="margin-top:-12px"><br>
+<button class="login-btn" id="btn" onclick="doLogin()">登录</button>
 <div class="error" id="err"></div>
 </div>
 <script>
 document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
 async function doLogin(){const u=document.getElementById('user').value,p=document.getElementById('pass').value;
 if(!u||!p)return;const btn=document.getElementById('btn'),err=document.getElementById('err');
-btn.disabled=true;btn.textContent='Signing in...';err.style.display='none';
+btn.disabled=true;btn.textContent='登录中...';err.style.display='none';
 try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:u,pass:p})});
 const d=await r.json();if(d.ok){document.cookie='token='+d.token+';path=/;max-age=3600';location.href='/admin'}
-else{err.textContent=d.error||'Login failed';err.style.display='block'}}
-catch(e){err.textContent='Network error';err.style.display='block'}
-btn.disabled=false;btn.textContent='Sign In'}
+else{err.textContent=d.error||'登录失败';err.style.display='block'}}
+catch(e){err.textContent='网络错误';err.style.display='block'}
+btn.disabled=false;btn.textContent='登录'}
 </script></body></html>"""
 
 # ── Admin HTML (inline) ──────────────────────────────────
-ADMIN = r"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>AiMedbrief Analytics</title>
+ADMIN = r"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>AiMedbrief 数据分析</title>
 <style>:root{--bg:#0f1117;--card:#1a1d28;--border:#2a2d3a;--text:#e4e6ec;--muted:#888;--accent:#4f8cff;--green:#34d399}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between}
@@ -88,21 +88,21 @@ ADMIN = r"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta 
 .refresh{font-size:11px;color:var(--muted);text-align:right;margin-top:8px}
 .empty{text-align:center;color:var(--muted);padding:32px;font-size:13px}
 </style></head><body>
-<div class="header"><h1>&#128202; <span>AiMedbrief</span> Analytics</h1><div class="live">Live &#183; Auto-refresh 10s</div></div>
+<div class="header"><h1>&#128202; <span>AiMedbrief</span> 数据分析</h1><div class="live">实时 &#183; 每10秒刷新</div></div>
 <div class="container" id="app">Loading...</div>
 <script>
 const $=s=>document.querySelector(s);
 async function load(){const r=await fetch('/api/stats');const d=await r.json();render(d)}
 function render(d){const pv=d.today_views||0,apv=d.all_views||0,ac=d.article_clicks||0,ua=d.unique_articles||0;const top=d.articles||[],recent=d.recent||[];const max=Math.max(...top.map(a=>a.page_views||0),1);
-let h='<div class="stats-row">'+card('Today PV',pv,'accent',pv>0?'today so far':'waiting')+card('All-Time PV',apv,'','total')+card('Article Clicks',ac,'green',ua+' unique')+card('Unique IPs',d.unique_ips||0,'','distinct')+'</div>';
-h+='<div class="section-title">&#128466; Article Performance</div>';
-if(top.length){h+='<table class="articles-table"><tr><th>Article</th><th>PV</th><th>Clicks</th><th></th></tr>';
+let h='<div class="stats-row">'+card('今日浏览',pv,'accent',pv>0?'今日累计':'等待数据')+card('累计浏览',apv,'','总计')+card('文章点击',ac,'green',ua+' 篇')+card('独立IP',d.unique_ips||0,'','去重')+'</div>';
+h+='<div class="section-title">&#128466; 文章表现</div>';
+if(top.length){h+='<table class="articles-table"><tr><th>文章</th><th>浏览</th><th>点击</th><th></th></tr>';
 top.forEach(a=>{h+='<tr><td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(a.title_en||'---')+'</td><td>'+a.page_views+'</td><td>'+a.clicks+'</td><td><div class="bar-wrap"><div class="bar-fill" style="width:'+Math.round(a.page_views/max*100)+'%"></div></div></td></tr>'});h+='</table>'}
-else{h+='<div class="empty">No data yet</div>'}
-h+='<div class="section-title" style="margin-top:24px">&#128339; Recent Activity</div>';
-if(recent.length){h+='<div class="recent-log"><table><tr><th>Time</th><th>Page</th><th>UA</th></tr>';
+else{h+='<div class="empty">暂无数据</div>'}
+h+='<div class="section-title" style="margin-top:24px">&#128339; 最近访问</div>';
+if(recent.length){h+='<div class="recent-log"><table><tr><th>时间</th><th>页面</th><th>UA</th></tr>';
 recent.forEach(r=>{const t=r.created_at?r.created_at.replace('T',' ').substring(0,19):'';h+='<tr><td>'+t+'</td><td>'+e(r.page)+'</td><td style="font-size:10px;color:var(--muted)">'+e((r.ua||'').substring(0,80))+'</td></tr>'});h+='</table></div>'}
-h+='<div class="refresh">Updated: '+(d.generated||'')+'</div>';$('#app').innerHTML=h}
+h+='<div class="refresh">更新于: '+(d.generated||'')+'</div>';$('#app').innerHTML=h}
 function card(l,v,c,s){return '<div class="stat-card"><div class="label">'+l+'</div><div class="value '+c+'">'+v+'</div><div class="sub">'+s+'</div></div>'}
 function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 load();setInterval(load,10000);
