@@ -40,7 +40,7 @@ h2{font-size:20px;font-weight:600;margin-top:36px;margin-bottom:12px}
 </head>
 <body>
 <nav class="top-bar"><div class="top-bar-inner">
-<a href="../index.html" class="top-bar-brand">AiMedbrief</a>
+<a href="../index.html" class="top-bar-brand"><img src="../images/logo.png" alt="AiMedbrief" style="height:28px;width:auto"></a>
 <a href="../index.html">&#8592; Back to Home</a>
 </div></nav>
 <div class="container">

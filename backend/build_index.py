@@ -50,6 +50,7 @@ html_parts.append('''<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="ab-page" content="index.html">
 <title>AiMedbrief &mdash; China Biopharma Intelligence Daily</title>
+<link rel="icon" type="image/png" href="images/logo.png">
 <meta name="description" content="Daily intelligence on innovative drugs, medical devices, and AI-enabled medicine from China &mdash; curated and translated for a global audience.">
 <style>''')
 
@@ -62,7 +63,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .top-bar{background:rgba(255,255,255,0.85);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--border-light);position:sticky;top:0;z-index:100}
 .top-bar-inner{max-width:var(--max-w);margin:0 auto;padding:21px 42px;display:flex;justify-content:space-between;align-items:center}
 .top-bar-brand{display:flex;align-items:center;gap:18px}
-.top-bar-brand h1{font-size:30px;font-weight:700;letter-spacing:-0.4px;color:var(--text)}
+.top-bar-brand img{height:36px;width:auto;display:block}
 .top-bar-brand span{font-size:22px;color:var(--text-secondary);font-weight:400;padding-left:18px;border-left:2px solid var(--border)}
 .top-bar-links{display:flex;gap:30px;font-size:21px}
 .top-bar-links a{color:var(--text-secondary);text-decoration:none;transition:color .2s;font-weight:500}
@@ -143,7 +144,7 @@ html_parts.append('</style></head><body>\n')
 
 # Top bar
 html_parts.append('''<nav class="top-bar"><div class="top-bar-inner">
-<div class="top-bar-brand"><h1>AiMedbrief</h1><span>China Biopharma Intelligence Daily</span></div>
+<div class="top-bar-brand"><img src="images/logo.png" alt="AiMedbrief"><span>China Biopharma Intelligence Daily</span></div>
 <div class="top-bar-links"><a href="#">Today</a><a href="#">Archive</a><a href="#">Topics</a><a href="#">About</a></div>
 </div></nav>\n''')
 

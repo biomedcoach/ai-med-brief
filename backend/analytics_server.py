@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""AiMedbrief Analytics Server — with debug logging"""
-import http.server, json, sqlite3, os, time, sys, traceback
-from urllib.parse import urlparse
+"""AiMedbrief Analytics Server — with auth"""
+import http.server, json, sqlite3, os, time, sys, traceback, hashlib, secrets
+from urllib.parse import urlparse, parse_qs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(HERE, 'analytics.db')
 PORT = 5000
+
+# ── Auth Config ─────────────────────────────────────────
+ADMIN_USER = 'admin'
+ADMIN_PASS_HASH = hashlib.sha256('Admin2025!'.encode()).hexdigest()  # change me
+ACTIVE_TOKENS = {}  # token → expiry_timestamp
+SESSION_TTL = 3600  # 1 hour
 
 # ── DB ───────────────────────────────────────────────────
 def init_db():
@@ -23,6 +29,39 @@ def _e(sql, params=()):
     db = sqlite3.connect(DB_PATH); db.execute(sql, params); db.commit(); db.close()
 
 init_db()
+
+# ── Login HTML (inline) ──────────────────────────────────
+LOGIN = r"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Login — AiMedbrief Analytics</title>
+<style>:root{--bg:#0f1117;--card:#1a1d28;--border:#2a2d3a;--text:#e4e6ec;--muted:#888;--accent:#4f8cff;--red:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;min-height:100vh}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;width:380px;max-width:90vw}
+.login-box h1{font-size:22px;text-align:center;margin-bottom:4px}.login-box h1 span{color:var(--accent)}
+.login-box .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:28px}
+.input-group{margin-bottom:16px}.input-group label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.input-group input{width:100%;padding:10px 14px;background:#0f1117;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;transition:border-color .2s}
+.input-group input:focus{border-color:var(--accent)}
+.login-btn{width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;transition:opacity .2s}
+.login-btn:hover{opacity:.9}.login-btn:disabled{opacity:.5;cursor:not-allowed}
+.error{color:var(--red);font-size:12px;text-align:center;margin-top:12px;display:none}
+</style></head><body>
+<div class="login-box">
+<h1>&#128202; <span>AiMedbrief</span></h1><div class="sub">Analytics Dashboard</div>
+<input class="input-group" type="text" id="user" placeholder="Username" autocomplete="off"><br>
+<input class="input-group" type="password" id="pass" placeholder="Password" style="margin-top:-12px"><br>
+<button class="login-btn" id="btn" onclick="doLogin()">Sign In</button>
+<div class="error" id="err"></div>
+</div>
+<script>
+document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+async function doLogin(){const u=document.getElementById('user').value,p=document.getElementById('pass').value;
+if(!u||!p)return;const btn=document.getElementById('btn'),err=document.getElementById('err');
+btn.disabled=true;btn.textContent='Signing in...';err.style.display='none';
+try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:u,pass:p})});
+const d=await r.json();if(d.ok){document.cookie='token='+d.token+';path=/;max-age=3600';location.href='/admin'}
+else{err.textContent=d.error||'Login failed';err.style.display='block'}}
+catch(e){err.textContent='Network error';err.style.display='block'}
+btn.disabled=false;btn.textContent='Sign In'}
+</script></body></html>"""
 
 # ── Admin HTML (inline) ──────────────────────────────────
 ADMIN = r"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>AiMedbrief Analytics</title>
@@ -95,6 +134,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._ok()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
 
+    def _get_cookie(self, name):
+        cookie = self.headers.get('Cookie', '')
+        for c in cookie.split(';'):
+            c = c.strip()
+            if c.startswith(name + '='):
+                return c[len(name)+1:]
+        return None
+
+    def _check_auth(self):
+        token = self._get_cookie('token')
+        if token and token in ACTIVE_TOKENS:
+            if time.time() < ACTIVE_TOKENS[token]:
+                return True
+            del ACTIVE_TOKENS[token]
+        return False
+
     def do_OPTIONS(self):
         self.send_response(200); self._cors(); self.end_headers()
 
@@ -102,9 +157,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
         try:
             p = urlparse(self.path)
             if p.path in ('/admin', '/'):
+                if not self._check_auth():
+                    return self._send(LOGIN)
                 return self._send(ADMIN)
             if p.path == '/api/stats':
+                if not self._check_auth():
+                    self.send_response(401); self._cors(); self.end_headers()
+                    return
                 return self._stats()
+            if p.path == '/logout':
+                token = self._get_cookie('token')
+                if token: ACTIVE_TOKENS.pop(token, None)
+                return self._send(LOGIN)
             self.send_response(404); self._cors(); self.end_headers()
         except Exception as e:
             print(f'[ERROR GET {self.path}] {e}', file=sys.stderr)
@@ -119,6 +183,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
             data = json.loads(body) if body else {}
             ip = self.client_address[0]
 
+            # ── Login ──
+            if p.path == '/api/login':
+                u = (data.get('user') or '').strip()
+                pw = (data.get('pass') or '').strip()
+                if u == ADMIN_USER and hashlib.sha256(pw.encode()).hexdigest() == ADMIN_PASS_HASH:
+                    token = secrets.token_hex(32)
+                    ACTIVE_TOKENS[token] = time.time() + SESSION_TTL
+                    self._json({'ok': True, 'token': token})
+                else:
+                    self._json({'ok': False, 'error': 'Invalid username or password'})
+                return
+
+            # ── Tracking (no auth needed) ──
             if p.path == '/track':
                 _e("INSERT INTO page_views (page,article_id,referrer,ua,ip) VALUES (?,?,?,?,?)",
                     (data.get('page',''), data.get('article_id') or None, data.get('referrer',''),
